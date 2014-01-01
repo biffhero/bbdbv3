@@ -67,6 +67,12 @@
   "Alist of MUA modes supported by BBDB.
 Each element is of the form (MUA MODE MODE ...), where MODEs are used by MUA.")
 
+(defconst bbdb-mua-select-message-buffer-func-alist
+  '((vm . vm-follow-summary-cursor)
+    (mh . mh-show)
+    (gnus . bbdb/gnus-select-mua-buffer))
+  "Alist of MUA functions that select a message buffer.")
+
 (defun bbdb-mua ()
   "For the current message return the MUA.
 Return values include
@@ -543,22 +549,12 @@ UPDATE-P is defined in `bbdb-update-records'."
                              update-p))))))
 
 (defmacro bbdb-mua-wrapper (&rest body)
-  "Perform BODY in a MUA buffer."
+  "Execute BODY in a message buffer."
   (declare (debug t))
-  `(let ((mua (bbdb-mua)))
-     ;; Here we replicate BODY multiple times which gets clumsy
-     ;; for a larger BODY!
-     (cond ((eq mua 'gnus)
-            ;; This fails in *Article* buffers, where
-            ;; `gnus-article-read-summary-keys' provides an additional wrapper
-            (save-current-buffer
-              (gnus-summary-select-article) ; sets buffer `gnus-summary-buffer'
-              ,@body))
-           ((memq mua '(mail message rmail mh vm))
-            (cond ((eq mua 'vm) (vm-follow-summary-cursor))
-                  ((eq mua 'mh) (mh-show)))
-            ;; rmail, mail and message do not require any wrapper
-            ,@body))))
+  (let ((mua (gensym)))
+    `(let ((,mua (bbdb-mua)))
+       (with-current-buffer (funcall (or (cdr (assq ,mua bbdb-mua-select-message-buffer-func-alist)) 'current-buffer))
+         ,@body))))
 
 (defun bbdb-mua-update-interactive-p ()
   "Interactive spec for arg UPDATE-P of `bbdb-mua-display-records' and friends.

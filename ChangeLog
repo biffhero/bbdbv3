@@ -1,5 +1,10 @@
 2014-01-01  David Maus  <dmaus@ictsoc.de>
 
+	* lisp/bbdb-mua.el (bbdb-mua-select-message-buffer-func-alist):
+	New constant. Alist of MUAs and functions to select a message
+	buffer.
+	(bbdb-mua-wrapper): Refactored.
+
 	* lisp/bbdb-gnus.el (bbdb/gnus-select-mua-buffer): New
 	function. Factored out from `bbdb-mua-wrapper' macro.
 
