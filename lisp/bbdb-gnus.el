@@ -433,4 +433,11 @@ Do not call this in your init file.  Use `bbdb-initialize'."
   ;;            (t 'bbdb/gnus-score))
   ;;    'bbdb/gnus-score))
 
+(defun bbdb/gnus-select-mua-buffer ()
+  (let (mua-buffer)
+    (save-current-buffer
+      (gnus-summary-select-article)
+      (setq mua-buffer (current-buffer)))
+    mua-buffer))
+
 (provide 'bbdb-gnus)

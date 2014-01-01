@@ -1,3 +1,8 @@
+2014-01-01  David Maus  <dmaus@ictsoc.de>
+
+	* lisp/bbdb-gnus.el (bbdb/gnus-select-mua-buffer): New
+	function. Factored out from `bbdb-mua-wrapper' macro.
+
 2013-07-28  Roland Winkler  <winkler@gnu.org>
 	* doc/bbdb.texi: Add @dircategory and @direntry.
 	(Bug#38794)
