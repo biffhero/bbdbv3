@@ -1,3 +1,8 @@
+2014-01-12  David Maus  <dmaus@ictsoc.de>
+
+	* lisp/bbdb-wanderlust.el: New file. Minimalistic and unobtrusive
+	hook into BBDB.
+
 2014-01-08  Roland Winkler  <winkler@gnu.org>
 	* lisp/bbdb.el (bbdb-canonical-hosts, bbdb-canonicalize-mail-1)
 	(bbdb-message-clean-name-default): Move here from bbdb-mua.el.
