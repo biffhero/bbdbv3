@@ -1126,7 +1126,8 @@ to `bbdb-address-format-list'."
                      (bbdb-error-retry
                       (bbdb-parse-postcode
                        (bbdb-read-string
-                        "Postcode: " (bbdb-address-postcode address))))))
+                        "Postcode: " (bbdb-address-postcode address)
+                        bbdb-postcode-list)))))
               ((eq elt ?C)
                (aset new-addr 4
                      (bbdb-read-string
@@ -1152,8 +1153,8 @@ to `bbdb-address-format-list'."
   (let ((n 0) street list)
     (while (not (string= "" (setq street
                                   (bbdb-read-string
-                                   (format "Street, line %d: " (+ 1 n))
-                                   (nth n streets)))))
+                                   (format "Street, line %d: " (1+ n))
+                                   (nth n streets) bbdb-street-list))))
       (push street list)
       (setq n (1+ n)))
     (reverse list)))
@@ -1174,7 +1175,8 @@ Country:         country"
                           bbdb-state-list)
         (bbdb-error-retry
          (bbdb-parse-postcode
-          (bbdb-read-string "Postcode: " (bbdb-address-postcode address))))
+          (bbdb-read-string "Postcode: " (bbdb-address-postcode address)
+                            bbdb-postcode-list)))
         (bbdb-read-string "Country: " (or (bbdb-address-country address)
                                           bbdb-default-country)
                           bbdb-country-list)))
@@ -2201,7 +2203,6 @@ If we are past `fill-column', wrap at the previous comma."
         (if bbdb-completion-display-record
             (let ((bbdb-silent-internal t))
               ;; FIXME: This pops up *BBDB* before removing *Completions*
-              (bbdb-pop-up-window)
               (bbdb-display-records records nil t)))
         ;; `bbdb-complete-mail-hook' may access MAIL, ADDRESS, and RECORDS.
         (run-hooks 'bbdb-complete-mail-hook))))
