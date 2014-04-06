@@ -1,8 +1,8 @@
 # lisp/Makefile.am for BBDB
 #
-# Copyright (C) 2010-2013 Roland Winkler <winkler@@gnu.org>
+# Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
 
-# Author: Roland Winkler <winkler@@gnu.org>
+# Author: Roland Winkler <winkler@gnu.org>
 #  	  Christian Egli <christian.egli@sbs.ch>
 # 
 # This file is part of the Insidious Big Brother Database (aka BBDB),
@@ -30,6 +30,7 @@ dist_lisp_LISP = 				\
 	bbdb-mhe.el				\
 	bbdb-migrate.el				\
 	bbdb-mua.el				\
+	bbdb-pgp.el				\
 	bbdb-print.el				\
 	bbdb-rmail.el				\
 	bbdb-sc.el				\
@@ -45,13 +46,19 @@ endif
 lisp_DATA = bbdb-loaddefs.el
 
 MOSTLYCLEANFILES = bbdb-loaddefs.el
+CLEANFILES = bbdb-site.el bbdb-pkg.el
+
+# The Emacs function define-package is not autoloaded.
+# So we assume we need not compile bbdb-pkg.el (which otherwise
+# results in a compiler warning that define-package is not defined).
+EXTRA_DIST = bbdb-site.el.in bbdb-pkg.el.in bbdb-pkg.el
 
 bbdb-loaddefs.el: $(dist_lisp_LISP)
 #	2011-12-11: We switched from bbdb-autoloads.el to bbdb-loaddefs.el.
 #	If the user still has an old bbdb-autoloads.el in the BBDB
 #	lisp directory (and keeps loading it from the emacs init file),
-#	we might get strange mistakes that things fail. So we throw an error
-#	if these old files are found.
+#	we might get strange error messages that things fail.
+#	So we throw an error if these old files are found.
 	@if test -f bbdb-autoloads.el -o -f bbdb-autoloads.elc; then \
 	  (echo "*** ERROR: Old file(s) \`bbdb-autoloads.el(c)' found ***" ; \
 	  echo "*** Delete these files; do not load them from your init file ***") && \
@@ -61,9 +68,24 @@ bbdb-loaddefs.el: $(dist_lisp_LISP)
 	@echo "(if (and load-file-name (file-name-directory load-file-name))" >> $@;
 	@echo "    (add-to-list 'load-path (file-name-directory load-file-name)))" >> $@;
 	@echo "" >> $@;
-#	generated-autoload-file must have an absolute path
+#	Generated autoload-file must have an absolute path,
 #	$srcdir can be relative.
 	$(EMACS) -batch -l autoload \
 		--eval '(setq generated-autoload-file "'$(abs_builddir)/$@'")' \
 		--eval '(setq make-backup-files nil)' \
 		-f batch-update-autoloads $(srcdir)
+
+# Generate bbdb-site.el here as pkgdatadir is only known at "make" time.
+# We protect the autoconf variables in the sed regular expressions
+# so as not to substitute them when processing Makefile.am.
+# Warning: the sed expressions will break if PACKAGE_VERSION, PACKAGE_DATE,
+# or pkgdatadir contain '='.
+
+bbdb-site.el: $(top_builddir)/config.status bbdb-site.el.in
+	sed -e "s=[@]pkgdatadir[@]=$(pkgdatadir)=" \
+	    -e "s=[@]PACKAGE_VERSION[@]=$(PACKAGE_VERSION)=" \
+	    -e "s=[@]PACKAGE_DATE[@]=$(PACKAGE_DATE)=" \
+	    < $@.in > $@
+
+# Be sure bbdb-site.el exists early for "(require 'bbdb-site)"
+BUILT_SOURCES = bbdb-site.el

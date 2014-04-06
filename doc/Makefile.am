@@ -1,7 +1,7 @@
 # doc/Makefile.am for BBDB
 #
 # Copyright (C) 2013 Christian Egli <christian.egli@sbs.ch>
-#                    and Roland Winkler <winkler@@gnu.org>
+# Copyright (C) 2013-2014 Roland Winkler <winkler@gnu.org>
 # 
 # This file is part of the Insidious Big Brother Database (aka BBDB),
 # 
@@ -20,3 +20,7 @@
 
 info_TEXINFOS = bbdb.texi
 bbdb_TEXINFOS = doclicense.texi gpl.texi
+
+doc_DATA = bbdb.pdf
+
+bbdb.info bbdb.pdf: $(bbdb_TEXINFOS)
