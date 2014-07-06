@@ -534,7 +534,7 @@ This is used for fields which do not have an entry in `bbdb-separator-alist'."
 
 (defcustom bbdb-separator-alist
   '((name-first-last "[ ,;]" " ") (name-last-first "[ ,;]" ", ")
-    (organization "[,;]" ", ") (affix "[,;]"  ", ") (aka ";" "; ")
+    (organization "[,;]" ", ") (affix "[,;]"  ", ") (aka "[,;]" ", ")
     (mail "[,;]" ", ") (mail-alias "[,;]" ", ") (vm-folder "[,;]" ", ")
     (birthday "\n" "\n") (wedding "\n" "\n") (anniversary "\n" "\n")
     (notes "\n" "\n"))
@@ -1114,10 +1114,6 @@ to determine the header and class of the mail address according
 to `bbdb-message-headers'.  See `bbdb-auto-notes' for how to annotate records
 using `bbdb-update-records-address' and the headers of a mail message.
 
-The record need not have been modified for this hook to be called;
-use `bbdb-change-hook' for that.  `bbdb-change-hook' will NOT be called
-as a result of modifications you may make to the record inside this hook.
-
 If a message contains multiple mail addresses belonging to one BBDB record,
 this hook is run for each mail address.  Use `bbdb-notice-record-hook'
 if you want to notice each record only once per message."
@@ -1131,10 +1127,6 @@ record or it is a record BBDB has created for the mail address.  If a message
 contains multiple mail addresses belonging to one BBDB record, this hook
 is nonetheless run only once.  Use `bbdb-notice-mail-hook' if you want to run
 a hook function for each mail address in a message.
-
-The record need not have been modified for this hook to be called;
-use `bbdb-change-hook' for that.  `bbdb-change-hook' will NOT be called
-as a result of modifications you may make to the record inside this hook.
 
 Hook is run with one argument, the record."
   :group 'bbdb-mua
@@ -1637,7 +1629,7 @@ You really should not disable debugging.  But it will speed things up."))
            (repeat (vector string (repeat string) string string
                            string string)) ; address
            (repeat string) ; mail
-           (repeat (cons symbol string)) ; xfields
+           (repeat (cons symbol sexp)) ; xfields
            sexp) ; cache
   "Pseudo-code for the structure of a record.  Used by `bbdb-record-type'.")
 
@@ -1657,10 +1649,6 @@ You really should not disable debugging.  But it will speed things up."))
 (defvar bbdb-silent-internal nil
   "Bind this to t to quiet things down - do not set it.
 See also `bbdb-silent'.")
-
-(defvar bbdb-notice-hook-pending nil
-  "Bound to t if inside `bbdb-notice-mail-hook' or `bbdb-notice-record-hook'.
-Calls of `bbdb-change-hook' are suppressed when this is non-nil.")
 
 (defvar bbdb-init-forms
   '((gnus                       ; gnus 3.15 or newer
@@ -1751,6 +1739,12 @@ This is a vector [APPEND-M INVERT-M APPEND INVERT].
 APPEND-M is the mode line info if `bbdb-append-display' is non-nil.
 INVERT-M is the mode line info if `bbdb-search-invert' is non-nil.
 APPEND and INVERT appear in the message area.")
+
+(defvar bbdb-update-unchanged-records nil
+  "If non-nil update unchanged records in the database.
+Normally calls of `bbdb-change-hook' and updating of a record are suppressed,
+if an editing command did not really change the record.  Bind this to t
+if you want to call `bbdb-change-hook' and update the record unconditionally.")
 
 ;;; Keymap
 (defvar bbdb-mode-map
@@ -1912,16 +1906,18 @@ ARGS are passed to `message'."
   (ding t)
   (apply 'message args))
 
-(defsubst bbdb-string-trim (string)
+(defun bbdb-string-trim (string &optional null)
   "Remove leading and trailing whitespace and all properties from STRING.
-If STRING is nil return an empty string."
+If STRING is nil return an empty string unless NULL is non-nil."
   (if (null string)
-      ""
+      (unless null "")
+    (setq string (substring-no-properties string))
     (if (string-match "\\`[ \t\n]+" string)
-        (setq string (substring string (match-end 0))))
+        (setq string (substring-no-properties string (match-end 0))))
     (if (string-match "[ \t\n]+\\'" string)
-        (setq string (substring string 0 (match-beginning 0))))
-    (substring-no-properties string)))
+        (setq string (substring-no-properties string 0 (match-beginning 0))))
+    (unless (and null (string= "" string))
+      string)))
 
 (defsubst bbdb-string= (str1 str2)
   "Return t if strings STR1 and STR2 are equal, ignoring case."
@@ -1958,6 +1954,14 @@ The inverse function of `bbdb-split'."
              (delete "" (apply 'append (mapcar (lambda (x) (if (stringp x)
                                                                (list x) x))
                                                strings))) separator))
+
+(defun bbdb-list-strings (list)
+  "Remove all elements from LIST which are not non-empty strings."
+  (let (new-list)
+    (dolist (elt list)
+      (if (and (stringp elt) (not (string= "" elt)))
+          (push elt new-list)))
+    (nreverse new-list)))
 
 ;; A call of `indent-region' swallows any indentation
 ;; that might be part of the field itself.  So we indent manually.
@@ -2024,6 +2028,21 @@ You really should not disable debugging.  But it will speed things up."
   (if bbdb-debug ; compile-time switch
       `(let ((debug-on-error t))
          ,@body)))
+
+;; inspired by `gnus-bind-print-variables'
+(defmacro bbdb-with-print-loadably (&rest body)
+  "Bind print-* variables for BBDB and evaluate BODY.
+This macro is used with `prin1', `prin1-to-string', etc. in order to ensure
+printed Lisp objects are loadable by BBDB."
+  (declare (indent 0))
+  `(let ((print-escape-newlines t) ;; BBDB needs this!
+         print-escape-nonascii print-escape-multibyte
+         print-quoted print-length print-level)
+         ;; print-circle print-gensym
+         ;; print-continuous-numbering
+         ;; print-number-table
+         ;; float-output-format
+     ,@body))
 
 (defun bbdb-timestamp (record)
   "For use as an element of `bbdb-change-hook'.
@@ -2518,100 +2537,131 @@ Build and store it if necessary."
 Return nil if xfield LABEL is undefined."
   (cdr (assq label (bbdb-record-xfields record))))
 
-;; The values of xfields are always strings.  The following function
+;; The values of xfields are normally strings.  The following function
 ;; comes handy if we want to treat these values as symbols.
 (defun bbdb-record-xfield-intern (record label)
   "For RECORD return interned value of xfield LABEL.
 Return nil if xfield LABEL does not exist."
   (let ((value (bbdb-record-xfield record label)))
-    (if value (intern value))))
+    ;; If VALUE is not a string, return whatever it is.
+    (if (stringp value) (intern value) value)))
+
+(defun bbdb-record-xfield-string (record label)
+  "For RECORD return value of xfield LABEL as string.
+Return nil if xfield LABEL does not exist."
+  (let ((value (bbdb-record-xfield record label)))
+    (if (string-or-null-p value)
+        value
+      (let ((print-escape-newlines t))
+        (prin1-to-string value)))))
 
 (defsubst bbdb-record-xfield-split (record label)
   "For RECORD return value of xfield LABEL split as a list.
 Splitting is based on `bbdb-separator-alist'."
   (let ((val (bbdb-record-xfield record label)))
-    (if val (bbdb-split label val))))
+    (cond ((stringp val) (bbdb-split label val))
+          (val (error "Cannot split `%s'" val)))))
 
 (defun bbdb-record-set-xfield (record label value)
   "For RECORD set xfield LABEL to VALUE.
-If VALUE is nil, remove xfield LABEL from RECORD.  Return VALUE."
+If VALUE is nil or an empty string, remove xfield LABEL from RECORD.
+Return VALUE."
   ;; In principle we can also have xfield labels `name' or `mail', etc.
   ;; Yet the actual code would get rather confused.  So we throw an error.
   (if (memq label '(name firstname lastname affix organization
                          mail aka phone address xfields))
       (error "xfield label `%s' illegal" label))
-  (add-to-list 'bbdb-xfield-label-list label nil 'eq)
   (if (eq label 'mail-alias)
       (setq bbdb-mail-aliases-need-rebuilt 'edit))
-  (if (and value (string= "" value)) (setq value nil))
-  (let ((oldval (assq label (bbdb-record-xfields record))))
-    ;; Do nothing if both oldval and value are nil.
-    (cond ((and oldval value) ; update
-           (setcdr oldval value))
-          (value ; new field
+  (if (stringp value) (setq value (bbdb-string-trim value t)))
+  (let ((old-xfield (assq label (bbdb-record-xfields record))))
+    ;; Do nothing if both OLD-XFIELD and VALUE are nil.
+    (cond ((and old-xfield value) ; update
+           (setcdr old-xfield value))
+          (value ; new xfield
+           (add-to-list 'bbdb-xfield-label-list label nil 'eq)
            (bbdb-record-set-xfields record
                                     (append (bbdb-record-xfields record)
                                             (list (cons label value)))))
-          (oldval ; remove
+          (old-xfield ; remove
            (bbdb-record-set-xfields record
-                                    (delq oldval (bbdb-record-xfields record))))))
+                                    (delq old-xfield
+                                          (bbdb-record-xfields record))))))
   value)
 
-(defun bbdb-check-type (object type &optional abort)
+(defun bbdb-check-type (object type &optional abort extended)
   "Return non-nil if OBJECT is of type TYPE.
+TYPE is a pseudo-code as in `bbdb-record-type'.
 If ABORT is non-nil, abort with error message if type checking fails.
-TYPE is a pseudo-code as in `bbdb-record-type'."
-  (let ((success
-         (catch 'success
-           ;; First atomic types
-           (cond ((eq type 'symbol) (throw 'success (symbolp object)))
-                 ((eq type 'integer) (throw 'success (integerp object)))
-                 ((eq type 'string) (throw 'success (stringp object)))
-                 ((eq type 'marker) (throw 'success (markerp object)))
-                 ((eq type 'sexp) (throw 'success t))) ; matches always
-           ;; compound types
-           (unless (consp type)
-             (error "atomic type `%s' undefined" type))
-           (let ((tp (pop type)))
-             (cond ((eq tp 'const)
-                    (throw 'success (equal (car type) object)))
-                   ((eq tp 'cons)
-                    (throw 'success
-                           (and (consp object)
-                                (bbdb-check-type (car object) (nth 0 type) abort)
-                                (bbdb-check-type (cdr object) (nth 1 type) abort))))
-                   ((eq tp 'list)
-                    (unless (listp object) (throw 'success nil))
-                    (let ((len (length type)) elt)
-                      (unless (eq len (length object)) (throw 'success nil))
-                      (while (setq elt (pop type))
-                        (unless (bbdb-check-type (pop object) elt abort)
-                          (throw 'success nil)))))
-                   ((eq tp 'repeat)
-                    (unless (listp object) (throw 'success nil))
-                    (let ((tp1 (car type)) elt)
-                      (while (setq elt (pop object))
-                        (unless (bbdb-check-type elt tp1 abort)
-                          (throw 'success nil)))))
-                   ((eq tp 'vector)
-                    (unless (vectorp object) (throw 'success nil))
-                    (let ((len (length type)) elt)
-                      (unless (eq len (length object)) (throw 'success nil))
-                      (dotimes (i len)
-                        (unless (bbdb-check-type (elt object i) (nth i type)
-                                                abort)
-                          (throw 'success nil)))))
-                   ((eq tp 'or) ; like customize `choice' type
-                    (let (elt)
-                      (while (setq elt (pop type))
-                        (if (bbdb-check-type object elt)
-                          (throw 'success t)))
-                      (throw 'success nil)))
-                   (t (error "type `%s' undefined" tp)))
-             t)))) ; success
-    (if (and abort (not success))
-        (error "type mismatch: expect %s, got `%s'" type object))
-    success))
+If EXTENDED is non-nil, consider extended atomic types which may include
+symbols, numbers, markers, and strings."
+  (let (tmp)
+    ;; Add more predicates?  Compare info node `(elisp.info)Type Predicates'.
+    (or (cond ((eq type 'symbol) (symbolp object))
+              ((eq type 'integer) (integerp object))
+              ((eq type 'marker) (markerp object))
+              ((eq type 'number) (numberp object))
+              ((eq type 'string) (stringp object))
+              ((eq type 'sexp) t) ; matches always
+              ((eq type 'face) (facep object))
+              ;; not quite a type
+              ((eq type 'bound) (and (symbolp object) (boundp object)))
+              ((eq type 'function) (functionp object))
+              ((eq type 'vector) (vectorp object))
+              ((and extended
+                    (cond ((symbolp type) (setq tmp (eq type object)) t)
+                          ((or (numberp type) (markerp type))
+                           (setq tmp (= type object)) t)
+                          ((stringp type)
+                           (setq tmp (and (stringp object)
+                                          (string= type object))) t)))
+               tmp)
+              ((not (consp type))
+               (error "Atomic type `%s' undefined" type))
+              ((eq 'const (setq tmp (car type)))
+               (equal (nth 1 type) object))
+              ((eq tmp 'cons)
+               (and (consp object)
+                    (bbdb-check-type (car object) (nth 1 type) abort extended)
+                    (bbdb-check-type (cdr object) (nth 2 type) abort extended)))
+              ((eq tmp 'list)
+               (and (listp object)
+                    (eq (length (cdr type)) (length object))
+                    (let ((type (cdr type)) (object object) (ok t))
+                      (while type
+                        (unless (bbdb-check-type (pop object) (pop type)
+                                                 abort extended)
+                          (setq ok nil type nil)))
+                      ok)))
+              ((eq tmp 'repeat)
+               (and (listp object)
+                    (let ((tp (nth 1 type)) (object object) (ok t))
+                      (while object
+                        (unless (bbdb-check-type (pop object) tp abort extended)
+                          (setq ok nil object nil)))
+                      ok)))
+              ((eq tmp 'vector)
+               (and (vectorp object)
+                    (let* ((i 0) (type (cdr type))
+                           (ok (eq (length object) (length type))))
+                      (when ok
+                        (while type
+                          (if (bbdb-check-type (aref object i) (pop type)
+                                               abort extended)
+                              (setq i (1+ i))
+                            (setq ok nil type nil)))
+                        ok))))
+              ((eq tmp 'or) ; like customize `choice' type
+               (let ((type (cdr type)) ok)
+                 (while type
+                   (if (bbdb-check-type object (pop type) nil extended)
+                       (setq ok t type nil)))
+                 ok))
+              ;; User-defined predicate
+              ((eq tmp 'user-p) (funcall (nth 1 type) object))
+              (t (error "Compound type `%s' undefined" tmp)))
+        (and abort
+             (error "Type mismatch: expect %s, got `%s'" type object)))))
 
 ;; (bbdb-check-type 'bar 'symbol)
 ;; (bbdb-check-type 'bar 'bar)
@@ -2620,8 +2670,14 @@ TYPE is a pseudo-code as in `bbdb-record-type'."
 ;; (bbdb-check-type nil '(const nil))
 ;; (bbdb-check-type '(bar . "foo") '(cons symbol string))
 ;; (bbdb-check-type '(bar "foo") '(list symbol string))
-;; (bbdb-check-type (vector 'sbar "foo") '(vector symbol string))
+;; (bbdb-check-type '("bar" "foo") '(repeat string))
+;; (bbdb-check-type (vector 'bar "foo") '(vector symbol string))
+;; (bbdb-check-type (vector 'bar "foo") 'vector)
 ;; (bbdb-check-type '(bar (bar . "foo")) '(list symbol (cons symbol string)))
+;; (bbdb-check-type '("aa" . "bb") '(or (const nil) (cons string string)) t)
+;; (bbdb-check-type nil '(or nil (cons string string)) t t)
+;; (bbdb-check-type "foo" '(user-p (lambda (a) (stringp a))))
+;; (bbdb-check-type 'set 'function)
 
 (defun bbdb-record-field (record field)
   "For RECORD return the value of FIELD.
@@ -2723,6 +2779,7 @@ See also `bbdb-record-field'."
            (if merge (setq value (bbdb-merge-lists (bbdb-record-affix record)
                                                    value 'bbdb-string=)))
            (if check (bbdb-check-type value (bbdb-record-affix record-type) t))
+           (setq value (bbdb-list-strings value))
            (bbdb-record-set-affix record value))
 
           ;; Organization
@@ -2730,6 +2787,7 @@ See also `bbdb-record-field'."
            (if merge (setq value (bbdb-merge-lists (bbdb-record-organization record)
                                                    value 'bbdb-string=)))
            (if check (bbdb-check-type value (bbdb-record-organization record-type) t))
+           (setq value (bbdb-list-strings value))
            (bbdb-hash-update record (bbdb-record-organization record) value)
            (dolist (organization value)
              (add-to-list 'bbdb-organization-list organization))
@@ -2740,6 +2798,7 @@ See also `bbdb-record-field'."
            (if merge (setq value (bbdb-merge-lists (bbdb-record-aka record)
                                                    value 'bbdb-string=)))
            (if check (bbdb-check-type value (bbdb-record-aka record-type) t))
+           (setq value (bbdb-list-strings value))
            (unless bbdb-allow-duplicates
              (dolist (aka value)
                (let ((old (remq record (bbdb-gethash aka '(fl-name lf-name aka)))))
@@ -2753,6 +2812,7 @@ See also `bbdb-record-field'."
            (if merge (setq value (bbdb-merge-lists (bbdb-record-mail record)
                                                    value 'bbdb-string=)))
            (if check (bbdb-check-type value (bbdb-record-mail record-type) t))
+           (setq value (bbdb-list-strings value))
            (unless bbdb-allow-duplicates
              (dolist (mail value)
                (let ((old (remq record (bbdb-gethash mail '(mail)))))
@@ -2800,7 +2860,7 @@ See also `bbdb-record-field'."
              (if check (bbdb-check-type new-xfields (bbdb-record-xfields record-type) t))
              (dolist (xfield (nreverse value))
                ;; Ignore junk
-               (when (and (cdr xfield) (not (string= "" (cdr xfield))))
+               (when (and (cdr xfield) (not (equal "" (cdr xfield))))
                  (push xfield new-xfields)
                  (add-to-list 'bbdb-xfield-label-list (car xfield) nil 'eq)))
              (bbdb-record-set-xfields record new-xfields)))
@@ -2810,7 +2870,8 @@ See also `bbdb-record-field'."
            (if merge
                (setq value (bbdb-merge-xfield field (bbdb-record-xfield record field)
                                               value)))
-           (if check (bbdb-check-type value 'string t))
+           ;; The following test always succeeds
+           ;; (if check (bbdb-check-type value 'sexp t))
            ;; This removes xfield FIELD if its value is nil.
            (bbdb-record-set-xfield record field value))
 
@@ -2862,18 +2923,18 @@ If L1 or L2 are not lists, they are replaced by (list L1) and (list L2)."
 If LABEL has an entry in `bbdb-merge-xfield-function-alist', use it.
 If VALUE1 or VALUE2 is a substring of the other, return the longer one.
 Otherwise use `bbdb-concat'.  Return nil if we have nothing to merge."
-  (setq value1 (bbdb-string-trim value1)) ; converts nil to ""
-  (setq value2 (bbdb-string-trim value2)) ; converts nil to ""
-  (let ((b1 (not (string= "" value1)))
-        (b2 (not (string= "" value2))))
-    (cond ((and b1 b2)
-           (let ((fun (cdr (assq label bbdb-merge-xfield-function-alist))))
-             (cond (fun (funcall fun value1 value2))
-                   ((string-match (regexp-quote value1) value2) value2)
-                   ((string-match (regexp-quote value2) value1) value1)
-                   (t (bbdb-concat label value1 value2)))))
-          (b1 value1)
-          (b2 value2))))
+  (if (stringp value1) (setq value1 (bbdb-string-trim value1 t)))
+  (if (stringp value2) (setq value2 (bbdb-string-trim value2 t)))
+  (cond ((and value1 value2)
+         (let ((fun (cdr (assq label bbdb-merge-xfield-function-alist))))
+           (cond (fun (funcall fun value1 value2))
+                 ((not (and (stringp value1) (stringp value2)))
+                  (cons value1 value2)) ; concatenate lists
+                 ((string-match (regexp-quote value1) value2) value2)
+                 ((string-match (regexp-quote value2) value1) value1)
+                 (t (bbdb-concat label value1 value2)))))
+        (value1)
+        (value2)))
 
 ;;; Parsing other things
 
@@ -2902,12 +2963,13 @@ LAST is always a string (possibly empty).  FIRST may be nil."
 (defun bbdb-parse-postcode (string)
   "Check whether STRING is a legal postcode.
 Do this only if `bbdb-check-postcode' is non-nil."
-  (if (and bbdb-check-postcode
-           (not (memq t (mapcar (lambda (regexp)
-                                  ;; if it matches, (not (not index-of-match)) returns t
-                                  (not (not (string-match regexp string))))
-                                bbdb-legal-postcodes))))
-      (error "not a valid postcode.")
+  (if bbdb-check-postcode
+      (let ((postcodes bbdb-legal-postcodes) re done)
+        (while (setq re (pop postcodes))
+          (if (string-match re string)
+              (setq done t postcodes nil)))
+        (if done string
+          (error "not a valid postcode.")))
     string))
 
 (defun bbdb-phone-string (phone)
@@ -3282,43 +3344,72 @@ If `bbdb-file' uses an outdated format, it is migrated to `bbdb-file-format'."
           (set-buffer-modified-p nil)))))
 
 (defun bbdb-change-record (record &optional need-to-sort new)
-  "Update the database after a change of RECORD.  Return RECORD.
+  "Update the database after a change of RECORD.
+Return RECORD if RECORD got changed compared with the database,
+return nil otherwise.
 NEED-TO-SORT is t when the name has changed.
 If NEW is t treat RECORD as new.  New records are hashed.
 If RECORD is not new, it is redisplayed.  Yet it is then the caller's
 responsibility to update the hash-table for RECORD."
   (if bbdb-read-only
       (error "The Insidious Big Brother Database is read-only."))
-  ;; Do the changing.
   ;; The call of `bbdb-records' checks file synchronization.
   ;; If RECORD refers to an existing record that has been changed,
   ;; yet in the meanwhile we reverted the BBDB file, then RECORD
   ;; no longer refers to a record in `bbdb-records'.  So we are stuck!
   ;; All changes will be lost.
-  ;; To avoid this problem we would have to inhibit that `bbdb-file'
-  ;; may change on disc.
-  (cond ((memq record (bbdb-records))
-         (unless bbdb-notice-hook-pending
-           (run-hook-with-args 'bbdb-change-hook record))
-         (if (not need-to-sort) ;; If we do not need to sort, overwrite RECORD.
-             (bbdb-overwrite-record-internal record)
-           ;; Since we need to sort, delete then insert RECORD.
-           ;; Do not mess with the hash table here.
-           ;; We assume it got updated by the caller.
-           (bbdb-delete-record-internal record)
-           (bbdb-insert-record-internal record))
-         ;; If RECORD is currently displayed update display.
-         (bbdb-maybe-update-display record))
-        (new ;; Record is new and not yet in database, so add it.
-         (run-hook-with-args 'bbdb-create-hook record)
-         (unless bbdb-notice-hook-pending
-           (run-hook-with-args 'bbdb-change-hook record))
-         (bbdb-insert-record-internal record)
-         (bbdb-hash-record record))
-        (t (error "Changes are lost.")))
-  (add-to-list 'bbdb-changed-records record nil 'eq)
-  (run-hook-with-args 'bbdb-after-change-hook record)
-  record)
+  ;; FIXME: Once all records have a UUID, we can identify the corresponding
+  ;; record on disk that got edited, so that the user can merge the edited
+  ;; record with what is now on disk (or do whatever with these two records).
+  ;; This implies, first of all, that *here* we make sure that UUIDs are
+  ;; always unique inside BBDB.  Should we maintain a second cache for that?
+  ;; If a new record happens to have the same UUID as an exisiting record,
+  ;; this should also throw an error / branch appropriately.  So the arg NEW
+  ;; will really not be needed anymore and all these things will have a natural
+  ;; solution.
+  (let ((tail (memq record (bbdb-records))))
+    (cond (tail ; RECORD is not new
+           ;; If the string we currently have for RECORD in `bbdb-buffer'
+           ;; is `equal' to the string we would write to `bbdb-buffer',
+           ;; we really did not change RECORD at all.  So we don't update RECORD
+           ;; unless `bbdb-update-unchanged-records' tells us to do so anyway.
+           ;; Also, we only call `bbdb-change-hook' and `bbdb-after-change-hook'
+           ;; if RECORD got changed.
+           (when (or bbdb-update-unchanged-records
+                     (not (string= (bbdb-with-db-buffer
+                                     (buffer-substring-no-properties
+                                      (bbdb-record-marker record)
+                                      (1- (if (cdr tail)
+                                              (bbdb-record-marker (cadr tail))
+                                            bbdb-end-marker))))
+                                   (let ((cache (bbdb-record-cache record))
+                                         (inhibit-quit t))
+                                     (bbdb-record-set-cache record nil)
+                                     (prog1 (bbdb-with-print-loadably
+                                              (prin1-to-string record))
+                                       (bbdb-record-set-cache record cache))))))
+             (run-hook-with-args 'bbdb-change-hook record)
+             (if (not need-to-sort) ;; If we do not need to sort, overwrite RECORD.
+                 (bbdb-overwrite-record-internal record)
+               ;; Since we need to sort, delete then insert RECORD.
+               ;; Do not mess with the hash table here.
+               ;; We assume it got updated by the caller.
+               (bbdb-delete-record-internal record)
+               (bbdb-insert-record-internal record))
+             (add-to-list 'bbdb-changed-records record nil 'eq)
+             (run-hook-with-args 'bbdb-after-change-hook record)
+             ;; If RECORD is currently displayed update display.
+             (bbdb-maybe-update-display record)
+             record))
+          (new ;; Record is new and not yet in database, so add it.
+           (run-hook-with-args 'bbdb-create-hook record)
+           (run-hook-with-args 'bbdb-change-hook record)
+           (bbdb-insert-record-internal record)
+           (bbdb-hash-record record)
+           (add-to-list 'bbdb-changed-records record nil 'eq)
+           (run-hook-with-args 'bbdb-after-change-hook record)
+           record)
+          (t (error "Changes are lost.")))))
 
 (defun bbdb-delete-record-internal (record &optional completely)
   "Delete RECORD in the database file.
@@ -3345,21 +3436,6 @@ from the hash table."
         (dolist (aka (bbdb-record-field record 'aka-all))
           (bbdb-remhash aka record))))
     (bbdb-record-set-sortkey record nil)))
-
-;; inspired by `gnus-bind-print-variables'
-(defmacro bbdb-with-print-loadably (&rest body)
-  "Bind print-* variables for BBDB and evaluate BODY.
-This macro is used with `prin1', `prin1-to-string', etc. in order to ensure
-printed Lisp objects are loadable by BBDB."
-  (declare (indent 0))
-  `(let ((print-escape-newlines t) ;; BBDB needs this!
-         print-escape-nonascii print-escape-multibyte
-         print-quoted print-length print-level)
-         ;; print-circle print-gensym
-         ;; print-continuous-numbering
-         ;; print-number-table
-         ;; float-output-format
-     ,@body))
 
 (defun bbdb-insert-record-internal (record)
   "Insert RECORD into the database file.  Return RECORD.
@@ -3681,11 +3757,18 @@ FIELD-LIST is the list of actually displayed FIELDS."
                    (bbdb-display-list aka 'aka "; "))))
             ;; xfields
             (t
-             (let ((xfield (assq field (bbdb-record-xfields record))))
-               (if xfield
-                   (bbdb-display-text (concat (replace-regexp-in-string
-                                               "\n" "; " (cdr xfield)) "; ")
-                                      `(xfields ,xfield)))))))
+             (let* ((xfield (assq field (bbdb-record-xfields record)))
+                    (value (cdr xfield)))
+               (if value
+                   (bbdb-display-text
+                    (concat (if (stringp value)
+                                (replace-regexp-in-string
+                                 "\n" "; " value)
+                              ;; value of xfield is a sexp
+                              (let ((print-escape-newlines t))
+                                (prin1-to-string value)))
+                            "; ")
+                    `(xfields ,xfield)))))))
     ;; delete the trailing "; "
     (if (looking-back "; ")
         (backward-delete-char 2))
@@ -3747,13 +3830,23 @@ FIELD-LIST is the list of actually displayed FIELDS."
                  (bbdb-display-list aka 'aka "\n"))))
             ;; xfields
             (t
-             (let ((xfield (assq field (bbdb-record-xfields record))))
-               (when xfield
+             (let* ((xfield (assq field (bbdb-record-xfields record)))
+                    (value (cdr xfield)))
+               (when value
                  (bbdb-display-text (format fmt field)
                                     `(xfields ,xfield field-label)
                                     'bbdb-field-name)
                  (setq start (point))
-                 (insert (bbdb-indent-string (cdr xfield) indent) "\n")
+                 (insert (bbdb-indent-string
+                          (if (stringp value)
+                              value
+                            ;; value of xfield is a sexp
+                            (let ((string (pp-to-string value)))
+                              (if (string-match "[ \t\n]+\\'" string)
+                                  (substring-no-properties
+                                   string 0 (match-beginning 0))
+                                string)))
+                          indent) "\n")
                  (bbdb-field-property start `(xfields ,xfield)))))))
     (insert "\n")))
 
@@ -3943,16 +4036,17 @@ The BBDB buffer must be current when this is called."
           (delete-region (point) (or end-marker (point-max)))
           ;; If we deleted a record we need to update the subsequent
           ;; record numbers.
-          (if delete-p
-              (let* ((markers (append (mapcar (lambda (x) (nth 2 x))
-                                              (cdr (memq full-record bbdb-records)))
-                                      (list (point-max))))
-                     (start (pop markers)))
-                (dolist (end markers)
-                  (put-text-property start end
-                                     'bbdb-record-number record-number)
-                  (setq start end
-                        record-number (1+ record-number)))))
+          (when delete-p
+            (let* ((markers (append (mapcar (lambda (x) (nth 2 x))
+                                            (cdr (memq full-record bbdb-records)))
+                                    (list (point-max))))
+                   (start (pop markers)))
+              (dolist (end markers)
+                (put-text-property start end
+                                   'bbdb-record-number record-number)
+                (setq start end
+                      record-number (1+ record-number))))
+            (setq bbdb-records (delq full-record bbdb-records)))
           (run-hooks 'bbdb-display-hook))))))
 
 (defun bbdb-maybe-update-display (record &optional delete-p)
