@@ -20,6 +20,8 @@
 
 ;;; Code:
 
+(require 'bbdb-mua)
+
 (defun bbdb/wanderlust-header (header)
   (elmo-message-entity-field
    (elmo-message-entity wl-summary-buffer-elmo-folder (wl-summary-message-number))
