@@ -81,14 +81,15 @@ See also `bbdb-print-require'."
 
 (defcustom bbdb-print-require '(or address phone)
   "What fields are required for printing a record.
-This is evaluated for each record, and the record will be printed only
-if it returns non-nil.  The symbols name, organization, mail, phone,
-address, and notes will be set to appropriate values when this is
-evaluated; they will be nil if the field does not exist or is elided.
+This is a lisp expression and a record will be printed only if the evaluation
+of this expression yields a non-nil value for this records.
+The symbols name, organization, mail, phone, address, and notes will be set
+to appropriate values when this is evaluated; they will be nil if the field
+does not exist or is elided.
 
 The value of this variable can be any lisp expression, but typically
-it will be used for a boolean combination of the field variables, as
-in the following examples:
+it will be a boolean combination of the field variables, as in
+the following examples:
 
   Print only people whose phone numbers are known:
     (setq bbdb-print-require 'phone)
@@ -345,7 +346,7 @@ of the printout, notably the variables `bbdb-print-alist' and
   (interactive
    (list (bbdb-do-records)
          (read-file-name
-          (format "Print to file (default %s): "
+          (format "TeX file: (default %s) "
                   (abbreviate-file-name bbdb-print-file))
           (file-name-directory bbdb-print-file)
           bbdb-print-file)
@@ -397,7 +398,8 @@ of the printout, notably the variables `bbdb-print-alist' and
             (bbdb-print-record record current-letter
                                       brief pofl n-phones n-addresses)))
     (insert bbdb-print-epilog)
-    (goto-char (point-min))))
+    (goto-char (point-min)))
+  (message "Process this file with TeX (not LaTeX)"))
 
 (defun bbdb-print-record (record current-letter
                                  brief pofl n-phones n-addresses)
@@ -514,13 +516,14 @@ The return value is the new CURRENT-LETTER."
       ;; xfields
       (dolist (xfield xfields)
         (when (bbdb-print-field-p (car xfield))
-          (if (eq 'notes (car xfield))
-              (insert (format "\\notes{%s}\n"
-                              (bbdb-print-tex-quote (cdr xfield))))
-            (insert (format "\\note{%s}{%s}\n"
-                            (bbdb-print-tex-quote (symbol-name (car xfield)))
-                            (bbdb-print-tex-quote (cdr xfield)))))))
-
+          ;; The value of the xfield may be a sexp.  Ideally, a sexp
+          ;; should be formatted by `pp-to-string' then printed verbatim.
+          (let ((value (bbdb-print-tex-quote (format "%s" (cdr xfield)))))
+            (insert (if (eq 'notes (car xfield))
+                        (format "\\notes{%s}\n" value)
+                      (format "\\note{%s}{%s}\n"
+                              (bbdb-print-tex-quote (symbol-name (car xfield)))
+                              value))))))
       ;; Mark end of the record.
       (insert "\\endrecord\n%\n")
       (setq current-letter first-letter)))

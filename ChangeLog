@@ -1,3 +1,32 @@
+2014-08-30  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-print.el (bbdb-print-require): Improve docstring.
+
+2014-08-30  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-print.el (bbdb-print): Clarify prompt for file name.
+	Issue message on what to do with TeX file.
+
+2014-08-30  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-print.el (bbdb-print-record): Handle xfields the value
+	of which are sexps.
+
+2014-08-09  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-snarf.el (bbdb-snarf): Always install and display the
+	new record.
+
+2014-08-01  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-com.el (bbdb-mail-alias-list): New function.
+	(bbdb-add-mail-alias): Handle multiple records via * prefix.
+	Allow addition or deletion of multiple aliases per record.  Fix
+	docstring.
+
+2014-08-01  Roland Winkler  <winkler@gnu.org>
+	* lisp/makefile-temp: Fix previous change.
+
+2014-07-22  Roland Winkler  <winkler@gnu.org>
+	* lisp/Makefile.am: Do not load init files or site files for byte
+	compilation (Bug#42482). Use long options.
+	* lisp/makefile-temp: Ditto.  New variable emacs_compile.
+
 2014-05-15  Roland Winkler  <winkler@gnu.org>
 	* lisp/bbdb.el (bbdb-redisplay-record): Delete record from
 	bbdb-records if record is undisplayed.
