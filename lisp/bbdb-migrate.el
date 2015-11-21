@@ -1,7 +1,7 @@
 ;;; bbdb-migrate.el --- migration functions for BBDB
 
 ;; Copyright (C) 1991, 1992, 1993, 1994 Jamie Zawinski <jwz@netscape.com>.
-;; Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
+;; Copyright (C) 2010-2015 Roland Winkler <winkler@gnu.org>
 
 ;; This file is part of the Insidious Big Brother Database (aka BBDB),
 
@@ -21,6 +21,8 @@
 ;;; Commentary:
 ;;; This file contains the migration functions for BBDB.
 ;;; See the BBDB info manual for documentation.
+
+;;; Code:
 
 (require 'bbdb)
 
@@ -290,3 +292,5 @@ for outdated BBDB variables that are set via your personal `custom-file'."
     list))
 
 (provide 'bbdb-migrate)
+
+;;; bbdb-migrate.el ends here

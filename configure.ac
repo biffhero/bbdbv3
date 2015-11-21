@@ -1,7 +1,7 @@
 # configure.ac --- configuration setup for BBDB
 
 # Copyright (C) 2000-2001 Didier Verna <didier@xemacs.org>
-# Copyright (C) 2011-2014 Roland Winkler <winkler@gnu.org>
+# Copyright (C) 2011-2015 Roland Winkler <winkler@gnu.org>
 # 
 # Author:        Didier Verna <didier@xemacs.org>
 # Maintainer:    Roland Winkler <winkler@gnu.org>
@@ -40,6 +40,7 @@ AS_IF([test "$EMACS" = no], [AC_MSG_ERROR([cannot find Emacs])])
 
 # Checks for libraries.
 EMACS_VM
+EMACS_MU4E
 AC_SUBST([AM_ELCFLAGS])
 
 # Generate lisp/bbdb-site.el via lisp/Makefile as pkgdatadir is only known

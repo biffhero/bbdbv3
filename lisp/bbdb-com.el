@@ -1,7 +1,7 @@
 ;;; bbdb-com.el --- user-level commands of BBDB
 
 ;; Copyright (C) 1991, 1992, 1993 Jamie Zawinski <jwz@netscape.com>.
-;; Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
+;; Copyright (C) 2010-2015 Roland Winkler <winkler@gnu.org>
 
 ;; This file is part of the Insidious Big Brother Database (aka BBDB),
 
@@ -21,6 +21,8 @@
 ;;; Commentary:
 ;;; This file contains most of the user-level interactive commands for BBDB.
 ;;; See the BBDB info manual for documentation.
+
+;;; Code:
 
 (require 'bbdb)
 (require 'mailabbrev)
@@ -62,23 +64,33 @@ If FULL is non-nil, assume that RECORDS include display information."
         (if (vectorp records) (list records) records))))
 
 ;; Note about BBDB prefix commands:
-;; - `bbdb-do-all-records' behaves more like a proper prefix command
-;;   in the sense that it must immediately precede the main command.
-;;   YET: a simple M-x makes the prefix go away...
-;; - `bbdb-append-display' and `bbdb-search-invert' are fake prefix
-;;   commands. They need not precede the main commands.
-;;   Also, `bbdb-append-display' can act on multiple commands.
-;; FIXME: Make this more uniform and robust.
+;; `bbdb-do-all-records', `bbdb-append-display' and `bbdb-search-invert'
+;; are fake prefix commands. They need not precede the main commands.
+;; Also, `bbdb-append-display' can act on multiple commands.
+
+(defun bbdb-prefix-message ()
+  "Display a message about selected BBDB prefix commands."
+  (let ((msg (bbdb-concat " " (elt bbdb-modeline-info 1)
+                          (elt bbdb-modeline-info 3)
+                          (elt bbdb-modeline-info 5))))
+    (unless (string= "" msg) (message "%s" msg))))
 
 ;;;###autoload
-(defun bbdb-do-all-records ()
+(defun bbdb-do-all-records (&optional arg)
   "Command prefix for operating on all records currently displayed.
+With prefix ARG a positive number, operate on all records.
+With prefix ARG a negative number, operate on current record only.
 This only works for certain commands."
-  (interactive)
-  (message (substitute-command-keys
-            "\\<bbdb-mode-map>\\[bbdb-do-all-records]"))
-  (setq prefix-arg current-prefix-arg
-        last-command this-command))
+  (interactive "P")
+  (setq bbdb-do-all-records
+        (or (and (numberp arg) (< 0 arg))
+            (and (not (numberp arg)) (not bbdb-do-all-records))))
+  (aset bbdb-modeline-info 4 (if bbdb-do-all-records "all"))
+  (aset bbdb-modeline-info 5
+        (if bbdb-do-all-records
+            (substitute-command-keys
+             "\\<bbdb-mode-map>\\[bbdb-do-all-records]")))
+  (bbdb-prefix-message))
 
 ;;;###autoload
 (defun bbdb-do-records (&optional full)
@@ -87,8 +99,12 @@ Normally this list includes only the current record.
 It includes all currently displayed records if the command prefix \
 \\<bbdb-mode-map>\\[bbdb-do-all-records] is used.
 If FULL is non-nil, the list of records includes display information."
-  (if (eq last-command 'bbdb-do-all-records)
-      (if full bbdb-records (mapcar 'car bbdb-records))
+  (if bbdb-do-all-records
+      (progn
+        (setq bbdb-do-all-records nil)
+        (aset bbdb-modeline-info 4 nil)
+        (aset bbdb-modeline-info 5 nil)
+        (if full bbdb-records (mapcar 'car bbdb-records)))
     (list (bbdb-current-record full))))
 
 ;;;###autoload
@@ -107,7 +123,8 @@ If FULL is non-nil, the list of records includes display information."
            (aset bbdb-modeline-info 0
                  (format "(add %dx)" bbdb-append-display)))
           ((not bbdb-append-display)
-           (aset bbdb-modeline-info 0 nil)))
+           (aset bbdb-modeline-info 0 nil)
+           (aset bbdb-modeline-info 1 nil)))
     job))
 
 ;;;###autoload
@@ -128,13 +145,11 @@ With ARG a negative number do not append."
               ((eq t bbdb-append-display) "Add")
               (bbdb-append-display "add")
               (t nil)))
-  (aset bbdb-modeline-info 2
+  (aset bbdb-modeline-info 1
         (if bbdb-append-display
             (substitute-command-keys
              "\\<bbdb-mode-map>\\[bbdb-append-display]")))
-  (let ((msg (bbdb-concat " " (elt bbdb-modeline-info 2)
-                          (elt bbdb-modeline-info 3))))
-    (unless (string= "" msg) (message "%s" msg))))
+  (bbdb-prefix-message))
 
 (defsubst bbdb-layout-prefix ()
   "Set the LAYOUT arg interactively using the prefix arg."
@@ -147,7 +162,7 @@ With ARG a negative number do not append."
 To set it again, use command `bbdb-search-invert'."
   (let ((result bbdb-search-invert))
     (setq bbdb-search-invert nil)
-    (aset bbdb-modeline-info 1 nil)
+    (aset bbdb-modeline-info 2 nil)
     (aset bbdb-modeline-info 3 nil)
     result))
 
@@ -157,18 +172,14 @@ To set it again, use command `bbdb-search-invert'."
 With prefix ARG a positive number, invert next search.
 With prefix ARG a negative number, do not invert next search."
   (interactive "P")
-  (if (setq bbdb-search-invert
-            (or (and (numberp arg) (< 0 arg))
-                (and (not (numberp arg)) (not bbdb-search-invert))))
-      (progn
-        (aset bbdb-modeline-info 1 "inv")
-        (aset bbdb-modeline-info 3
-              (substitute-command-keys
-               "\\<bbdb-mode-map>\\[bbdb-search-invert]")))
-    (aset bbdb-modeline-info 1 nil)
-    (aset bbdb-modeline-info 3 nil))
-  (message "%s" (bbdb-concat " " (elt bbdb-modeline-info 2)
-                             (elt bbdb-modeline-info 3))))
+  (setq bbdb-search-invert
+        (or (and (numberp arg) (< 0 arg))
+            (and (not (numberp arg)) (not bbdb-search-invert))))
+  (aset bbdb-modeline-info 2 (if bbdb-search-invert "inv"))
+  (aset bbdb-modeline-info 3 (if bbdb-search-invert
+                                 (substitute-command-keys
+                                  "\\<bbdb-mode-map>\\[bbdb-search-invert]")))
+  (bbdb-prefix-message))
 
 (defmacro bbdb-search (records &optional name-re org-re mail-re xfield-re
                                phone-re address-re)
@@ -353,8 +364,9 @@ in either the name(s), organization, address, phone, mail, or xfields."
 
 ;;;###autoload
 (defun bbdb-search-changed (&optional layout)
-  "Display all records in the bbdb database which have changed since
-the database was last saved."
+  ;; FIXME: "changes" in BBDB lingo are often called "modifications"
+  ;; in Emacs lingo
+  "Display records which have been changed since BBDB was last saved."
   (interactive (list (bbdb-layout-prefix)))
   (if (bbdb-search-invert-p)
       (let (unchanged-records)
@@ -498,7 +510,8 @@ Interactively, use BBDB prefix \
     (bbdb-record-set-field record 'organization (bbdb-record-organization record))
     (bbdb-record-set-field record 'aka (bbdb-record-aka record))
     (bbdb-record-set-field record 'mail (bbdb-record-mail record))
-    (bbdb-change-record record)))
+    (bbdb-change-record record))
+  (bbdb-sort-records))
 
 (defun bbdb-touch-records (records)
   "Touch RECORDS by calling `bbdb-change-hook' unconditionally.
@@ -753,7 +766,7 @@ Return cons with first and last name."
 When called interactively read all relevant info.
 Do not call this from a program; call `bbdb-create-internal' instead."
   (interactive (list (bbdb-read-record current-prefix-arg)))
-  (bbdb-change-record record t t)
+  (bbdb-change-record record nil t)
   (bbdb-display-records (list record)))
 
 (defun bbdb-create-internal (&optional name affix aka organization mail
@@ -803,7 +816,7 @@ If CHECK is non-nil throw an error if an argument is not syntactically correct."
      (vector firstname lastname affix aka organization phone
              address mail xfields
              (make-vector bbdb-cache-length nil))
-     t t)))
+     nil t)))
 
 ;;;###autoload
 (defun bbdb-insert-field (record field value)
@@ -957,8 +970,7 @@ a phone number or address with VALUE being nil.
                  field ; not an xfield
                (elt value 0)) ; xfield
              value current-prefix-arg))))
-  ;; Some editing commands require re-sorting records
-  (let (bbdb-need-to-sort edit-str)
+  (let (edit-str)
     (cond ((memq field '(firstname lastname xfields))
            ;; FIXME: We could also edit first and last names.
            (error "Field `%s' not editable this way." field))
@@ -999,9 +1011,9 @@ a phone number or address with VALUE being nil.
           (t ; xfield
            (bbdb-record-set-xfield
             record field
-            (bbdb-read-xfield field (bbdb-record-xfield record field) flag))))
-    (unless (bbdb-change-record record bbdb-need-to-sort)
-      (message "Record unchanged"))))
+            (bbdb-read-xfield field (bbdb-record-xfield record field) flag)))))
+  (unless (bbdb-change-record record)
+    (message "Record unchanged")))
 
 (defun bbdb-edit-foo (record field &optional nvalue)
   "For RECORD edit some FIELD (mostly interactively).
@@ -1293,7 +1305,7 @@ irrespective of the value of ARG."
   (bbdb-editable)
   (let* ((ident (bbdb-ident-point))
          (record (and (car ident) (car (nth (car ident) bbdb-records))))
-         num1 num2 need-to-sort)
+         num1 num2)
     (cond ((not (car ident))
            (error "Point not in BBDB record"))
           ((not (nth 1 ident))
@@ -1301,8 +1313,7 @@ irrespective of the value of ARG."
           ((eq 'name (nth 1 ident))
            ;; Transpose firstname and lastname
            (bbdb-record-set-name record (bbdb-record-lastname record)
-                                 (bbdb-record-firstname record))
-           (setq need-to-sort t))
+                                 (bbdb-record-firstname record)))
           ((not (integerp arg))
            (error "Arg `%s' not an integer" arg))
           ((not (nth 2 ident))
@@ -1327,7 +1338,7 @@ irrespective of the value of ARG."
             record (nth 1 ident)
             (bbdb-list-transpose (bbdb-record-field record (nth 1 ident))
                                  num1 num2))))
-    (bbdb-change-record record need-to-sort)))
+    (bbdb-change-record record)))
 
 ;;;###autoload
 (defun bbdb-delete-field-or-record (records field &optional noprompt)
@@ -1360,8 +1371,11 @@ If prefix NOPROMPT is non-nil, do not confirm deletion."
           (cond ((memq type '(phone address))
                  (bbdb-record-set-field
                   record type
-                  (delq (nth 1 field)
-                        (bbdb-record-field record type))))
+                  ;; We use `delete' which deletes all phone and address
+                  ;; fields equal to the current one.  This works for
+                  ;; multiple records.
+                  (delete (nth 1 field)
+                          (bbdb-record-field record type))))
                 ((memq type '(affix organization mail aka))
                  (bbdb-record-set-field record type nil))
                 ((eq type 'xfields)
@@ -1577,7 +1591,7 @@ With prefix arg NEW-RECORD defaults to the first record with the same name."
                          (bbdb-record-xfields old-record) t)
 
   (bbdb-delete-records (list old-record) 'noprompt)
-  (bbdb-change-record new-record t)
+  (bbdb-change-record new-record)
   new-record)
 
 ;; The following sorting functions are also intended for use
@@ -2540,11 +2554,11 @@ Default is the first URL."
 
 ;;;###autoload
 (defun bbdb-copy-records-as-kill (records)
-  "Copy displayed RECORDS to kill ring.
+  "Copy RECORDS to kill ring.
 Interactively, use BBDB prefix \
 \\<bbdb-mode-map>\\[bbdb-do-all-records], see `bbdb-do-all-records'."
   (interactive (list (bbdb-do-records t)))
-  (let (drec marker)
+  (let (drec)
     (dolist (record (bbdb-record-list records t))
       (push (buffer-substring (nth 2 record)
                               (or (nth 2 (car (cdr (memq record bbdb-records))))
@@ -2553,6 +2567,56 @@ Interactively, use BBDB prefix \
     (kill-new (replace-regexp-in-string
                "[ \t\n]*\\'" "\n"
                (mapconcat 'identity (nreverse drec) "")))))
+
+;;;###autoload
+(defun bbdb-copy-fields-as-kill (records field &optional num)
+  "For RECORDS copy values of FIELD at point to kill ring.
+If FIELD is an address or phone with a label, copy only field values
+with the same label.  With numeric prefix NUM, if the value of FIELD
+is a list, copy only the NUMth list element.
+Interactively, use BBDB prefix \
+\\<bbdb-mode-map>\\[bbdb-do-all-records], see `bbdb-do-all-records'."
+  (interactive
+   (list (bbdb-do-records t) (bbdb-current-field)
+         (and current-prefix-arg
+              (prefix-numeric-value current-prefix-arg))))
+  (unless field (error "Not a field"))
+  (let* ((type (if (eq (car field) 'xfields)
+                   (car (nth 1 field))
+                 (car field)))
+         (label (if (memq type '(phone address))
+                    (aref (cadr field) 0)))
+	 (ident (and (< 1 (length records))
+                     (not (eq type 'name))))
+	 val-list)
+    (dolist (record (bbdb-record-list records))
+      (let ((raw-val (bbdb-record-field (car record) type))
+            value)
+        (if raw-val
+            (cond ((eq type 'phone)
+                   (dolist (elt raw-val)
+                     (if (equal label (aref elt 0))
+                         (push (bbdb-phone-string elt) value)))
+                   (setq value (bbdb-concat 'phone (nreverse value))))
+                  ((eq type 'address)
+                   (dolist (elt raw-val)
+                     (if (equal label (aref elt 0))
+                         (push (bbdb-format-address
+                                elt (if (eq (nth 1 record) 'one-line) 3 2))
+                               value)))
+                   (setq value (bbdb-concat 'address (nreverse value))))
+                  ((consp raw-val)
+                   (setq value (if num (nth num raw-val)
+                                 (bbdb-concat type raw-val))))
+                  (t (setq value raw-val))))
+        (if value
+            (push (if ident
+                      (bbdb-concat 'name-field
+                                   (bbdb-record-name (car record)) value)
+                    value) val-list))))
+    (let ((str (bbdb-concat 'record (nreverse val-list))))
+      (kill-new str)
+      (message "%s" str))))
 
 ;;; Help and documentation
 
@@ -2572,3 +2636,5 @@ mode help: \\[describe-mode]; \
 info: \\[bbdb-info]")))
 
 (provide 'bbdb-com)
+
+;;; bbdb-com.el ends here

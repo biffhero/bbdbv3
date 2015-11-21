@@ -1,7 +1,7 @@
 ;;; bbdb-vm.el --- BBDB interface to VM
 
 ;; Copyright (C) 1991, 1992, 1993 Jamie Zawinski <jwz@netscape.com>.
-;; Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
+;; Copyright (C) 2010-2015 Roland Winkler <winkler@gnu.org>
 
 ;; This file is part of the Insidious Big Brother Database (aka BBDB),
 
@@ -22,6 +22,8 @@
 ;;; This file contains the BBDB interface to VM.
 ;;; See the BBDB info manual for documentation.
 
+;;; Code:
+
 (require 'bbdb)
 (require 'bbdb-com)
 (require 'bbdb-mua)
@@ -34,52 +36,6 @@
 (require 'vm-macro)
 (require 'vm-message)
 (require 'vm-misc)
-
-(defcustom bbdb/vm-update-records-p
-  (lambda ()
-    (let ((bbdb-update-records-p
-           (if (vm-new-flag (car vm-message-pointer))
-               'query 'search)))
-      (bbdb-select-message)))
-  "How `bbdb-mua-update-records' processes mail addresses in VM.
-This VM-specific variable is normally not used.  It is a fallback
-if the generic (MUA-independent) variables `bbdb-mua-auto-update-p',
-`bbdb-update-records-p' or `bbdb-mua-update-interactive-p' result
-in a value of nil for the arg UPDATE-P of `bbdb-update-records'.
-
-Allowed values are:
- nil          Do nothing.
- search       Search for existing records.
- update       Search for existing records, update if necessary.
- query        Update existing records or query for creating new ones.
- create or t  Update existing records or create new ones.
- a function   This functions will be called with no arguments.
-                It should return one of the above values."
-  :group 'bbdb-mua-vm
-  :type '(choice (const :tag "do nothing"
-                        nil)
-                 (const :tag "search for existing records"
-                        (lambda () (let ((bbdb-update-records-p 'search))
-                                     (bbdb-select-message))))
-                 (const :tag "update existing records"
-                        (lambda () (let ((bbdb-update-records-p 'update))
-                                     (bbdb-select-message))))
-                 (const :tag "query annotation of all messages"
-                        (lambda () (let ((bbdb-update-records-p 'query))
-                                     (bbdb-select-message))))
-                 (const :tag "annotate (query) only new messages"
-                        (lambda ()
-                          (let ((bbdb-update-records-p
-                                 (if (vm-new-flag (car vm-message-pointer))
-                                     'query 'search)))
-                            (bbdb-select-message))))
-                 (const :tag "annotate all messages"
-                        (lambda () (let ((bbdb-update-records-p 'create))
-                                     (bbdb-select-message))))
-                 (const :tag "accept messages" bbdb-accept-message)
-                 (const :tag "ignore messages" bbdb-ignore-message)
-                 (const :tag "select messages" bbdb-select-message)
-                 (sexp  :tag "user defined function")))
 
 (defun bbdb/vm-header (header)
   (save-current-buffer
@@ -146,7 +102,8 @@ The order in this list is the order how matching will be performed."
   "Real folders used for defining virtual folders.
 If nil use `vm-primary-inbox'."
   :group 'bbdb-mua-vm
-  :type 'symbol)
+  :type '(choice (const :tag "Use vm-primary-inbox" nil)
+                 (repeat (string :tag "Real folder"))))
 
 ;;;###autoload
 (defun bbdb/vm-auto-folder ()
@@ -361,3 +318,5 @@ Do not call this in your init file.  Use `bbdb-initialize'."
             (lambda (m) (bbdb-mua-summary-mark (vm-su-from m))))))
 
 (provide 'bbdb-vm)
+
+;;; bbdb-vm.el ends here

@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 1997,1999 Kevin Davidson
 ;; Copyright (C) 2013 Gijs Hillenius
-;; Copyright (C) 2013-2014 Roland Winkler <winkler@gnu.org>
+;; Copyright (C) 2013-2015 Roland Winkler <winkler@gnu.org>
 
 ;; This file is part of the Insidious Big Brother Database (aka BBDB),
 
@@ -236,3 +236,5 @@ to call the command `bbdb-pgp' manually, then call `mml-preview'."
                          (setq ranked-actions nil)))))))))))
 
 (provide 'bbdb-pgp)
+
+;;; bbdb-pgp.el ends here

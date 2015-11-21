@@ -1,3 +1,141 @@
+2015-11-14  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb.el (bbdb-auto-revert, bbdb-dedicated-window)
+	(bbdb-default-domain, bbdb-mua-pop-up)
+	(bbdb-horiz-pop-up-window-size, bbdb-xfields-sort-order)
+	(bbdb-mua-summary-unification-list, bbdb-mail-avoid-redundancy)
+	* lisp/bbdb-snarf.el (bbdb-snarf-address-us-country)
+	(bbdb-snarf-address-eu-country)
+	* lisp/bbdb-anniv.el (bbdb-anniv-alist)
+	* lisp/bbdb-vm.el (bbdb/vm-virtual-real-folders)
+	* lisp/bbdb-gnus.el (bbdb/gnus-score-default)
+	(bbdb/gnus-split-myaddr-regexp, bbdb/gnus-split-private-field)
+	(bbdb/gnus-split-public-field)
+	* lisp/bbdb-sc.el (bbdb-sc-update-attrib-p): Fix defcustom.
+
+2015-11-08  Roland Winkler  <winkler@gnu.org>
+	Add new snarfing rule eu for many continental European countries.
+	Improve snarfing algorithm.
+	* lisp/bbdb-snarf.el (bbdb-snarf-rule-alist): Add new rule eu.
+	(bbdb-snarf-phone-nanp-regexp, bbdb-snarf-postcode-us-regexp)
+	(bbdb-snarf-url-regexp): Improve regexp.  Use first subexpression.
+	(bbdb-snarf-mail-regexp): New variable.
+	(bbdb-snarf-mail): Use it.
+	(bbdb-snarf-address-us-country): New variable.
+	(bbdb-snarf-address-us): Use it.  Check whether we actually
+	snarfed an address.
+	(bbdb-snarf-phone-eu-regexp, bbdb-snarf-postcode-eu-regexp)
+	(bbdb-snarf-address-eu-country): New variables.
+	(bbdb-snarf-label): Use save-match-data.
+	(bbdb-snarf-phone-nanp): Use save-match-data.  Reverse order of
+	snarfed phone numbers.
+	(bbdb-snarf-phone-eu, bbdb-snarf-address-eu): New functions.
+
+2015-11-08  Roland Winkler  <winkler@gnu.org>
+	Simplify re-sorting of records when a record has been changed.
+	Re-display re-sorted records.
+	* lisp/bbdb.el (bbdb-need-to-sort): Removed.
+	(bbdb-record-set-name): Simplify accordingly.
+	(bbdb-record-set-sortkey): Always evaluate new sortkey.
+	(bbdb-record-sortkey): Simplify accordingly.
+	(bbdb-change-record): Sort records if we have a new sort key.
+	(bbdb-redisplay-record-globally): Rename from
+	bbdb-maybe-update-display.  New optional arg sort.
+	(bbdb-delete-record-internal, bbdb-insert-record-internal): Do not
+	unset sort key.
+	(bbdb-display-records): Put point at beginning of buffer.
+	(bbdb-redisplay-record): New optional arg sort.  Throw error if
+	record was not displayed previously.
+	(bbdb-sort-records): Clarify status message.  Redisplay sorted
+	records.
+	* lisp/bbdb-com.el (bbdb-fix-records): Sort records.
+	(bbdb-create, bbdb-create-internal, bbdb-merge-records): Use nil
+	for unused second arg of bbdb-change-record.
+	(bbdb-edit-field, bbdb-transpose-fields): Do not worry about
+	re-sorting records.
+	* lisp/bbdb-mua.el (bbdb-annotate-message): Use nil
+	for unused second arg of bbdb-change-record.
+
+2015-09-10  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-anniv.el, lisp/bbdb-mu4e.el, lisp/bbdb-print.el:
+	* lisp/bbdb-snarf.el, lisp/bbdb-com.el, lisp/bbdb-message.el:
+	* lisp/bbdb-mua.el, lisp/bbdb-rmail.el, lisp/bbdb-gnus.el:
+	* lisp/bbdb-mhe.el, lisp/bbdb-pgp.el, lisp/bbdb-sc.el:
+	* lisp/bbdb-vm.el, lisp/bbdb-ispell.el, lisp/bbdb-migrate.el:
+	* lisp/bbdb-site.el.in, lisp/bbdb.el: Conform to Emacs Lisp
+	package format convention.
+	(Bug#45910)
+
+2015-09-10  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb.el (bbdb-separator-alist): Use two newline characters
+	to separate records.
+
+2015-09-07  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-com.el (bbdb-search-changed): Fix docstring.
+
+2015-09-07  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-com.el (bbdb-delete-field-or-record): Use delete for
+	phone and address fields.
+
+2015-09-07  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-com.el (bbdb-copy-records-as-kill): Fix docstring.
+	Delete unused local variable marker.
+
+2015-09-07  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb-com.el (bbdb-copy-fields-as-kill): New command.
+	* lisp/bbdb.el (bbdb-separator-alist, bbdb-mode-map): Update
+	accordingly.
+
+2015-05-23  Eric Abrahamsen <eric@ericabrahamsen.net>
+	* lisp/bbdb.el (bbdb-record-set-field, bbdb-parse-records): Use
+	equal for comparison when populating lists of labels.
+
+2015-05-22  Roland Winkler  <winkler@gnu.org>
+	Add basic support for mu4e mailer.
+	* NEWS, README: Update accordingly.
+	* m4/emacs_mu4e.m4: New file.
+	* configure.ac: Use it.
+	* lisp/bbdb-mu4e.el: New file.
+	* lisp/Makefile.am, lisp/makefile-temp: Compile it.
+	* lisp/bbdb.el (bbdb-init-forms): Add entry for mu4e.
+	(bbdb-initialize): Update docstring.
+	* lisp/bbdb-mua.el: Define mu4e~view-buffer-name.
+	(bbdb-mua-mode-alist): Add element for mu4e.
+	(bbdb-mua): Update docstring.
+	(bbdb-mua-update-records, bbdb-mua-wrapper): Handle mu4e.
+
+2015-05-22  Roland Winkler  <winkler@gnu.org>
+	Remove variables bbdb/MUA-update-records-p.
+	* lisp/bbdb-mua.el (bbdb-update-records): Rely only on arg
+	update-p.
+	* lisp/bbdb-gnus.el (bbdb/gnus-update-records-p): Remove.
+	* lisp/bbdb-message.el (bbdb/mail-update-records-p)
+	(bbdb/message-update-records-p): Remove.
+	* lisp/bbdb-mh.el (bbdb/mh-update-records-p): Remove.
+	* lisp/bbdb-rmail.el (bbdb/rmail-update-records-p): Remove.
+	* lisp/bbdb-vm.el (bbdb/vm-update-records-p): Remove.
+	* README, NEWS: Update accordingly.
+
+2015-05-22  Roland Winkler  <winkler@gnu.org>
+	Handle prefix command bbdb-do-all-records more robustly.
+	* lisp/bbdb.el (bbdb-do-all-records): New variable.
+	(bbdb-modeline-info): Add two new slots.
+	(bbdb-mode): Use them.
+	* lisp/bbdb-com.el (bbdb-prefix-message): New function.
+	(bbdb-do-all-records, bbdb-do-records): Use variable
+	bbdb-do-all-records.
+	(bbdb-append-display-p): Update displayed message.
+	(bbdb-append-display): Use bbdb-prefix-message.
+	(bbdb-search-invert): Ditto.  Simplify.
+
+2015-05-22  Roland Winkler  <winkler@gnu.org>
+	* lisp/bbdb.el (bbdb-redisplay-record): Display an undisplayed
+	record only if we do not want to delete it.
+	(bbdb-maybe-update-display): Only consider records that are
+	already displayed.  Improve docstring.
+
+2015-05-22  Roland Winkler  <winkler@gnu.org>
+	Update copyright year in all files.
+
 2014-08-30  Roland Winkler  <winkler@gnu.org>
 	* lisp/bbdb-print.el (bbdb-print-require): Improve docstring.
 
@@ -1969,7 +2107,7 @@
 ;; coding: utf-8
 ;; End:
 
-  Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
+  Copyright (C) 2010-2015 Roland Winkler <winkler@gnu.org>
 
   This file is part of the Insidious Big Brother Database (aka BBDB),
 

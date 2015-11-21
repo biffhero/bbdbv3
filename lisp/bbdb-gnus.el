@@ -1,7 +1,7 @@
 ;;; bbdb-gnus.el --- BBDB interface to Gnus
 
 ;; Copyright (C) 1991, 1992, 1993 Jamie Zawinski <jwz@netscape.com>.
-;; Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
+;; Copyright (C) 2010-2015 Roland Winkler <winkler@gnu.org>
 
 ;; This file is part of the Insidious Big Brother Database (aka BBDB),
 
@@ -22,54 +22,14 @@
 ;;; This file contains the BBDB interface to Gnus.
 ;;; See the BBDB info manual for documentation.
 
+;;; Code:
+
 (require 'bbdb)
 (require 'bbdb-com)
 (require 'bbdb-mua)
 (require 'gnus)
 
-(defcustom bbdb/gnus-update-records-p
-  (lambda () (let ((bbdb-update-records-p 'query))
-               (bbdb-select-message)))
-  "How `bbdb-mua-update-records' processes mail addresses in Gnus.
-This Gnus-specific variable is normally not used.  It is a fallback
-if the generic (MUA-independent) variables `bbdb-mua-auto-update-p',
-`bbdb-update-records-p' or `bbdb-mua-update-interactive-p' result
-in a value of nil for the arg UPDATE-P of `bbdb-update-records'.
-
-Allowed values are:
- nil          Do nothing.
- search       Search for existing records.
- update       Search for existing records, update if necessary.
- query        Update existing records or query for creating new ones.
- create or t  Update existing records or create new ones.
- a function   This functions will be called with no arguments.
-                It should return one of the above values."
-  :group 'bbdb-mua-gnus
-  :type '(choice (const :tag "do nothing" nil)
-                 (const :tag "search for existing records"
-                        (lambda () (let ((bbdb-update-records-p 'search))
-                                     (bbdb-select-message))))
-                 (const :tag "update existing records"
-                        (lambda () (let ((bbdb-update-records-p 'update))
-                                     (bbdb-select-message))))
-                 (const :tag "query annotation of all messages"
-                        (lambda () (let ((bbdb-update-records-p 'query))
-                                     (bbdb-select-message))))
-                 (const :tag "annotate (query) only new messages"
-                        (if (equal "" (gnus-summary-article-mark
-                                       (gnus-summary-article-number)))
-                            (bbdb-select-message) 'search))
-                 (const :tag "annotate all messages"
-                        (lambda () (let ((bbdb-update-records-p 'create))
-                                     (bbdb-select-message))))
-                 (const :tag "accept messages" bbdb-accept-message)
-                 (const :tag "ignore messages" bbdb-ignore-message)
-                 (const :tag "select messages" bbdb-select-message)
-                 (sexp  :tag "user defined")))
-
-;;
 ;; Scoring
-;;
 
 (defcustom bbdb/gnus-score-field 'gnus-score
   "This variable contains the name of the BBDB field which should be
@@ -82,7 +42,7 @@ checked for a score to add to the mail addresses in the same record."
 an associated score field will be assigned this score.  A value of nil
 implies a default score of zero."
   :group 'bbdb-mua-gnus-scoring
-  :type '(choice (const :tag "Do not assign default score")
+  :type '(choice (const :tag "Do not assign default score" nil)
                  (integer :tag "Assign this default score" 0)))
 
 (defvar bbdb/gnus-score-default-internal nil
@@ -213,7 +173,7 @@ excellent choice."
   "This regular expression should match your address as found in the
 From header of your mail."
   :group 'bbdb-mua-gnus-splitting
-  :type  'string)
+  :type  'regexp)
 
 (defcustom bbdb/gnus-split-crosspost-default nil
   "If this variable is not nil, then if the BBDB could not identify a
@@ -228,7 +188,7 @@ identified."
 associated group when saving private mail for a mail address known to
 the BBDB.  The value of the xfield should be the name of a mail group."
   :group 'bbdb-mua-gnus-splitting
-  :type  'string)
+  :type  'symbol)
 
 (defcustom bbdb/gnus-split-public-field 'gnus-public
   "This variable is used to determine the xfield to reference to find the
@@ -238,7 +198,7 @@ should be the name of a mail group, followed by a space, and a regular
 expression to match on the envelope sender to verify that this mail came
 from the list in question."
   :group 'bbdb-mua-gnus-splitting
-  :type  'string)
+  :type  'symbol)
 
 ;; The split function works by assigning one of four spooling priorities
 ;; to each group that is associated with an address in the message.  The
@@ -441,3 +401,5 @@ Do not call this in your init file.  Use `bbdb-initialize'."
     mua-buffer))
 
 (provide 'bbdb-gnus)
+
+;;; bbdb-gnus.el ends here

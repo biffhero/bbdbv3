@@ -1,10 +1,10 @@
-Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
+Copyright (C) 2010-2015 Roland Winkler <winkler@gnu.org>
 See the end of the file for license conditions.
 
 BBDB is the Insidious Big Brother Database for GNU Emacs.
 It provides an address book for email and snail mail addresses,
 phone numbers and the like.  It can be linked with various Emacs mail
-clients (Message and Mail mode, Rmail, Gnus, MH-E, and VM).
+clients (Message and Mail mode, Rmail, Gnus, MH-E, Mu4e, and VM).
 BBDB is fully customizable.
 
 BBDB is available at
@@ -36,6 +36,9 @@ To compile and install BBDB with `make':
    Makefiles accordingly.  You need at least GNU Emacs 23.
 
    The `configure' script comes with various options:
+
+   `--with-mu4e-dir=DIR' specifies the path where Mu4e can be found.
+     Without this option the resulting BBDB build does not support Mu4e.
 
    `--with-vm-dir=DIR' specifies the path where VM can be found.
      Without this option the resulting BBDB build does not support VM.
@@ -108,7 +111,7 @@ BBDB interface with mail user agents (MUAs)
 ===========================================
 
 BBDB can interface with various mail user agents (MUAs).
-These include Rmail, Gnus, VM, MH-E, Message and Mail mode.
+These include Rmail, Gnus, VM, MH-E, Mu4e, Message and Mail mode.
 This lets you
 
  - display the BBDB records for the sender and/or recipients of a
@@ -158,11 +161,8 @@ WITHOUT-PREFIX and WITH-PREFIX may take the values
  read         Read the value interactively.
 
 BBDB 2 also used MUA-specific variables bbdb/MUA-update-records-mode
-to control its interfaces with MUAs.  In BBDB 3 the variables
-bbdb/MUA-update-records-p are only used as fallback if the generic
-(MUA-independent) variables bbdb-mua-update-interactive-p,
-bbdb-update-records-p or bbdb-mua-auto-update-p result in a value of
-nil for the arg UPDATE-P of bbdb-update-records.
+to control its interfaces with MUAs.  Use function bbdb-mua to define
+your own function to get MUA-specific values.
 
 Noninteractive functions
 ------------------------
@@ -206,7 +206,7 @@ sequence of calls is
 
 ==================================================================
 
-Copyright (C) 2010-2014 Roland Winkler <winkler@gnu.org>
+Copyright (C) 2010-2015 Roland Winkler <winkler@gnu.org>
 
 This file is part of the Insidious Big Brother Database (aka BBDB),
 
