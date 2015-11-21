@@ -1681,7 +1681,9 @@ See also `bbdb-silent'.")
     (pgp                        ; pgp-mail
      (progn
        (add-hook 'message-send-hook 'bbdb-pgp)
-       (add-hook 'mail-send-hook 'bbdb-pgp))))
+       (add-hook 'mail-send-hook 'bbdb-pgp)))
+    (wanderlust
+     (add-hook 'wl-init-hook 'bbdb-insinuate-wanderlust)))
   "Alist mapping features to insinuation forms.")
 
 (defvar bbdb-search-invert nil

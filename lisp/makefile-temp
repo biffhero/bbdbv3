@@ -64,7 +64,7 @@ SRCS =	bbdb.el bbdb-site.el bbdb-com.el bbdb-print.el bbdb-anniv.el \
 	bbdb-migrate.el bbdb-snarf.el \
 	bbdb-mua.el bbdb-message.el bbdb-rmail.el \
 	bbdb-gnus.el bbdb-mhe.el bbdb-mu4e.el bbdb-vm.el bbdb-pgp.el \
-	bbdb-sc.el \
+	bbdb-sc.el bbdb-wanderlust.el \
 	bbdb-ispell.el bbdb-pkg.el
 
 # ELC =	$(patsubst %.el,%.elc,$(SRCS)) # GNU Make
@@ -72,13 +72,14 @@ ELC =	bbdb.elc bbdb-site.elc bbdb-com.elc bbdb-print.elc bbdb-anniv.elc \
 	bbdb-migrate.elc bbdb-snarf.elc \
 	bbdb-mua.elc bbdb-message.elc bbdb-rmail.elc \
 	bbdb-gnus.elc bbdb-mhe.elc bbdb-pgp.elc bbdb-sc.elc \
-	bbdb-ispell.elc # bbdb-pkg.elc
+	bbdb-ispell.elc bbdb-wanderlust.elc # bbdb-pkg.elc
 
 all: bbdb
 
 bbdb:	bbdb-loaddefs.el $(ELC)
 mu4e:	bbdb-mu4e.elc
 vm:	bbdb-vm.elc
+wanderlust:	bbdb-wanderlust.elc
 
 bbdb-loaddefs.el: $(SRCS)
 #	2011-12-11: We switched from bbdb-autoloads.el to bbdb-loaddefs.el.
@@ -132,6 +133,8 @@ bbdb-mhe.elc: bbdb-mhe.el bbdb-mua.elc
 	$(emacs_compile) $(@:.elc=.el)
 bbdb-mu4e.elc: bbdb-mu4e.el bbdb-mua.elc
 	$(emacs) $(MU4E) --funcall batch-byte-compile $(@:.elc=.el)
+bbdb-wanderlust.elc: bbdb-wanderlust.el bbdb-mua.elc
+	$(emacs_compile) $(@:.elc=.el)
 bbdb-vm.elc: bbdb-vm.el bbdb-mua.elc
 	$(emacs) $(VM) --funcall batch-byte-compile $(@:.elc=.el)
 bbdb-sc.elc: bbdb-sc.el bbdb-mua.elc
