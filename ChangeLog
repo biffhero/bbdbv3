@@ -1,3 +1,8 @@
+2015-11-29  David Maus  <dmaus@dmaus.name>
+
+	* lisp/bbdb-mua.el (bbdb-mua-auto-update-init): Add wanderlust to
+	list of auto-update muas.
+
 2015-11-21  David Maus  <dmaus@dmaus.name>
 
 	* lisp/bbdb-mua.el (bbdb-mua-mode-alist, bbdb-mua)
