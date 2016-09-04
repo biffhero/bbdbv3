@@ -71,7 +71,7 @@
     (message message-mode)
     (mail mail-mode)
     (mu4e mu4e-view-mode)  ; Tackle `mu4e-headers-mode' later
-    (wanderlust wl-summary-mode wl-draft-mode))
+    (wanderlust wl-summary-mode wl-draft-mode mime-view-mode))
   "Alist of MUA modes supported by BBDB.
 Each element is of the form (MUA MODE MODE ...), where MODEs are used by MUA.")
 
