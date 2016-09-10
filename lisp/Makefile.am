@@ -38,7 +38,9 @@ dist_lisp_LISP = 				\
 	bbdb-rmail.el				\
 	bbdb-sc.el				\
 	bbdb-snarf.el				\
-	bbdb-site.el
+	bbdb-site.el				\
+	bbdb-mua-adapter.el			\
+	bbdb-mua-adapter-wl.el
 
 if VM
 dist_lisp_LISP += bbdb-vm.el
