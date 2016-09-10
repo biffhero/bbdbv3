@@ -95,36 +95,6 @@ Return values include
                 mm-alist nil)))
     (or mua (error "BBDB: MUA `%s' not supported" major-mode))))
 
-;;;###autoload
-(defun bbdb-message-header (header)
-  "For the current message return the value of HEADER.
-MIME encoded headers are decoded.  Return nil if HEADER does not exist."
-  ;; RW: If HEADER was allowed to be a regexp and the content of multiple
-  ;; matching headers was concatenated as in `message-field-value',
-  ;; this would simplify the usage of `bbdb-accept-message-alist' and
-  ;; `bbdb-ignore-message-alist'.
-  ;; RW: If this function had a remember table, it could look up the value
-  ;; of a header if we request the value of the same header multiple times.
-  ;; (We would reset the remember table each time we move on to a new message.)
-  (let* ((mua (bbdb-mua))
-         (val (cond (;; It seems that `gnus-fetch-field' fetches decoded content of
-                     ;; `gnus-visible-headers', ignoring `gnus-ignored-headers'.
-                     ;; Here we use instead `gnus-fetch-original-field' that fetches
-                     ;; the encoded content of `gnus-original-article-buffer'.
-                     ;; Decoding makes this possibly a bit slower, but something like
-                     ;; `bbdb-select-message' does not get fooled by an apparent
-                     ;; absence of some headers.
-                     ;; See http://permalink.gmane.org/gmane.emacs.gnus.general/78741
-                     (eq mua 'gnus) (gnus-fetch-original-field header))
-                    ((eq mua 'vm) (bbdb/vm-header header))
-                    ((eq mua 'rmail) (bbdb/rmail-header header))
-                    ((eq mua 'mh) (bbdb/mh-header header))
-                    ((eq mua 'mu4e) (message-field-value header))
-                    ((eq mua 'wl) (bbdb/wl-header header))
-                    ((memq mua '(message mail)) (message-field-value header))
-                    (t (error "BBDB/%s: header function undefined" mua)))))
-    (if val (mail-decode-encoded-word-string val))))
-
 (defsubst bbdb-message-header-re (header regexp)
   "Return non-nil if REGEXP matches value of HEADER."
   (let ((val (bbdb-message-header header))
@@ -166,51 +136,6 @@ Return the value of variable `bbdb-update-records-p' for messages both matching
 `bbdb-accept-message-alist' and not matching `bbdb-ignore-message-alist'."
   (and (bbdb-accept-message)
        (bbdb-ignore-message)))
-
-(defun bbdb-get-address-components (&optional header-class ignore-address)
-  "Extract mail addresses from a message.
-Return list with elements (NAME EMAIL HEADER HEADER-CLASS MUA).
-HEADER-CLASS is defined in `bbdb-message-headers'.  If HEADER-CLASS is nil,
-use all classes in `bbdb-message-headers'.
-If regexp IGNORE-ADDRESS matches NAME or EMAIL of an address, this address
-is ignored. If IGNORE-ADDRESS is nil, use value of `bbdb-user-mail-address-re'."
-  ;; We do not use `bbdb-message-all-addresses' here because only when we
-  ;; have compared the addresses with the records in BBDB do we know which
-  ;; address(es) are relevant for us.
-  (let ((message-headers (if header-class
-                             (list (assoc header-class bbdb-message-headers))
-                           bbdb-message-headers))
-        (mua (bbdb-mua))
-        (ignore-address (or ignore-address bbdb-user-mail-address-re))
-        address-list address name mail mail-list content)
-    (dolist (headers message-headers)
-      (dolist (header (cdr headers))
-        (when (setq content (bbdb-message-header header))
-          ;; Always extract all addresses because we do not know yet which
-          ;; address might match IGNORE-ADDRESS.
-          (dolist (address (bbdb-extract-address-components content t))
-            ;; We canonicalize name and mail as early as possible.
-            (setq name (car address)
-                  mail (cadr address))
-            ;; ignore uninteresting addresses
-            (unless (or (and (stringp ignore-address)
-                             (or (and name (string-match ignore-address name))
-                                 (and mail (string-match ignore-address mail))))
-                        (and mail (member-ignore-case mail mail-list)))
-              ;; Add each address only once. (Use MAIL-LIST for book keeping.)
-              ;; Thus if we care about whether an address gets associated with
-              ;; one or another header, the order of elements in
-              ;; `bbdb-message-headers' is relevant.  The "most important"
-              ;; headers should be first in `bbdb-message-headers'.
-              (if mail (push mail mail-list))
-              (push (list name mail header (car headers) mua) address-list))))))
-    (or (nreverse address-list)
-        (and header-class bbdb-message-try-all-headers
-             ;; Try again the remaining header classes
-             (let ((bbdb-message-headers
-                    (remove (assoc header-class bbdb-message-headers)
-                            bbdb-message-headers)))
-               (bbdb-get-address-components nil ignore-address))))))
 
 ;;;###autoload
 (defun bbdb-update-records (address-list &optional update-p sort)
@@ -570,69 +495,6 @@ Return the records matching ADDRESS or nil."
         (push record new-records)))
 
     (nreverse new-records)))
-
-(defun bbdb-mua-update-records (&optional header-class update-p sort)
-  "Wrapper for `bbdb-update-records'.
-HEADER-CLASS is defined in `bbdb-message-headers'.  If it is nil,
-use all classes in `bbdb-message-headers'.
-UPDATE-P is defined in `bbdb-update-records'.
-If SORT is non-nil, sort records according to `bbdb-record-lessp'."
-  (let ((mua (bbdb-mua)))
-    (save-current-buffer
-      (cond ;; VM
-       ((eq mua 'vm)
-        (vm-select-folder-buffer)
-        (vm-check-for-killed-summary)
-        (vm-error-if-folder-empty)
-        (let ((enable-local-variables t))  ; ...or vm bind this to nil.
-          (bbdb-update-records (bbdb-get-address-components header-class)
-                               update-p sort)))
-       ;; Gnus
-       ((eq mua 'gnus)
-        (set-buffer gnus-article-buffer)
-        (bbdb-update-records (bbdb-get-address-components header-class)
-                             update-p sort))
-       ;; MH-E
-       ((eq mua 'mh)
-        (if mh-show-buffer (set-buffer mh-show-buffer))
-        (bbdb-update-records (bbdb-get-address-components header-class)
-                             update-p sort))
-       ;; Rmail
-       ((eq mua 'rmail)
-        (set-buffer rmail-buffer)
-        (bbdb-update-records (bbdb-get-address-components header-class)
-                             update-p sort))
-       ;; mu4e
-       ((eq mua 'mu4e)
-        (set-buffer mu4e~view-buffer-name)
-        (bbdb-update-records (bbdb-get-address-components header-class)
-                             update-p sort))
-       ;; Wanderlust
-       ((eq mua 'wl)
-        (bbdb-update-records (bbdb-get-address-components header-class)
-                             update-p sort))
-      ;; Message and Mail
-       ((memq mua '(message mail))
-        (bbdb-update-records (bbdb-get-address-components header-class)
-                             update-p sort))))))
-
-(defmacro bbdb-mua-wrapper (&rest body)
-  "Perform BODY in a MUA buffer."
-  (declare (debug t))
-  `(let ((mua (bbdb-mua)))
-     ;; Here we replicate BODY multiple times which gets clumsy
-     ;; for a larger BODY!
-     (cond ((eq mua 'gnus)
-            ;; This fails in *Article* buffers, where
-            ;; `gnus-article-read-summary-keys' provides an additional wrapper
-            (save-current-buffer
-              (gnus-summary-select-article) ; sets buffer `gnus-summary-buffer'
-              ,@body))
-           ((memq mua '(mail message rmail mh vm mu4e wl))
-            (cond ((eq mua 'vm) (vm-follow-summary-cursor))
-                  ((eq mua 'mh) (mh-show)))
-            ;; rmail, mail, message, mu4e and wl do not require any wrapper
-            ,@body))))
 
 (defun bbdb-mua-update-interactive-p ()
   "Interactive spec for arg UPDATE-P of `bbdb-mua-display-records' and friends.
