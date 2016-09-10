@@ -80,6 +80,7 @@
               ;; `bbdb-message-headers' is relevant.  The "most important"
               ;; headers should be first in `bbdb-message-headers'.
               (if mail (push mail mail-list))
+              ;; dmaus, 2016: Removed symbol indicating mua from the list
               (push (list name mail header (car headers)) address-list))))))
     (or (nreverse address-list)
         (and header-class bbdb-message-try-all-headers
