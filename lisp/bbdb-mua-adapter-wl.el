@@ -1,4 +1,4 @@
-;;; bbdb-mua-adapter-wl.el --- BBDB Wanderlust user agent adapter  -*- lexical-binding: t; -*-
+;;; bbdb-mua-adapter-wl.el --- BBDB Wanderlust user agent adapter
 
 ;; Copyright (C) 2016  David Maus
 
