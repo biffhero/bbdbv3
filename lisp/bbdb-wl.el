@@ -27,14 +27,6 @@
 (require 'bbdb)
 (require 'bbdb-mua)
 
-(eval-when-compile
-  (defvar wl-summary-mode-map)
-  (defvar wl-draft-mode-map)
-  (defvar wl-summary-buffer-elmo-folder)
-  (autoload 'wl-summary-message-number "wl-summary")
-  (autoload 'elmo-message-entity "elmo-msgdb")
-  (autoload 'elmo-message-entity-field "elmo-msgdb"))
-
 (provide 'bbdb-wl)
 
 ;;; bbdb-wl.el ends here

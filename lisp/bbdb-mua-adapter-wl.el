@@ -26,6 +26,14 @@
 
 (require 'bbdb-mua-adapter)
 
+(eval-when-compile
+  (defvar wl-summary-mode-map)
+  (defvar wl-draft-mode-map)
+  (defvar wl-summary-buffer-elmo-folder)
+  (autoload 'wl-summary-message-number "wl-summary")
+  (autoload 'elmo-message-entity "elmo-msgdb")
+  (autoload 'elmo-message-entity-field "elmo-msgdb"))
+
 (defclass bbdb-mua-adapter:wanderlust (bbdb-mua-adapter) ()
   "BBDB Wanderlust adapter.")
 
