@@ -35,21 +35,6 @@
   (autoload 'elmo-message-entity "elmo-msgdb")
   (autoload 'elmo-message-entity-field "elmo-msgdb"))
 
-(defun bbdb/wl-header (header)
-  (elmo-message-entity-field
-   (elmo-message-entity wl-summary-buffer-elmo-folder
-                        (wl-summary-message-number))
-   (intern (downcase header)) 'string))
-
-;;;###autoload
-(defun bbdb-insinuate-wl ()
-  "Hook BBDB into Wanderlust."
-  (define-key wl-summary-mode-map (kbd ":") #'bbdb-mua-display-sender)
-  (define-key wl-summary-mode-map (kbd ";") #'bbdb-mua-edit-field-sender)
-  (when bbdb-complete-mail
-    (define-key wl-draft-mode-map (kbd "M-;") #'bbdb-complete-mail)
-    (define-key wl-draft-mode-map (kbd "M-<tab>") #'bbdb-complete-mail)))
-
 (provide 'bbdb-wl)
 
 ;;; bbdb-wl.el ends here
