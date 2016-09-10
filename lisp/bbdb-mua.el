@@ -86,6 +86,7 @@ Return values include
   mu4e      Mu4e
   wl        Wanderlust
   mail      Emacs Mail Mode."
+  (error "Should not be called!")
   (let ((mm-alist bbdb-mua-mode-alist)
         elt mua)
     (while (setq elt (pop mm-alist))
