@@ -36,7 +36,7 @@
 (defgeneric bbdb-mua-adapter-message-header (mua header)
   )
 
-(defgeneric bbdb-mua-adapter-message-body (mua)
+(defgeneric bbdb-mua-adapter-message-buffer (mua)
   )
 
 (defgeneric bbdb-mua-adapter-update-records (mua &optional header-class update-p sort)
@@ -45,7 +45,7 @@
 (defgeneric bbdb-mua-adapter-get-address-components (mua &optional header-class ignore-address)
   )
 
-(defmethod bbdb-mua-adapter-message-body ((mua bbdb-mua-adapter))
+(defmethod bbdb-mua-adapter-message-buffer ((mua bbdb-mua-adapter))
   (current-buffer))
 
 (defmethod bbdb-mua-adapter-update-records ((mua bbdb-mua-adapter) &optional header-class update-p sort)
@@ -125,7 +125,7 @@ If SORT is non-nil, sort records according to `bbdb-record-lessp'."
 
 (defmacro bbdb-mua-wrapper (&rest body)
   (declare (debug t))
-  `(with-current-buffer (bbdb-mua-adapter-message-body bbdb-mua-adapter-instance)
+  `(with-current-buffer (bbdb-mua-adapter-message-buffer bbdb-mua-adapter-instance)
     ,@body))
 
 (provide 'bbdb-mua-adapter)
