@@ -37,22 +37,13 @@
   )
 
 (defgeneric bbdb-mua-adapter-message-buffer (mua)
-  )
-
-(defgeneric bbdb-mua-adapter-update-records (mua &optional header-class update-p sort)
-  )
-
-(defgeneric bbdb-mua-adapter-get-address-components (mua &optional header-class ignore-address)
-  )
-
-(defmethod bbdb-mua-adapter-message-buffer ((mua bbdb-mua-adapter))
   (current-buffer))
 
-(defmethod bbdb-mua-adapter-update-records ((mua bbdb-mua-adapter) &optional header-class update-p sort)
+(defgeneric bbdb-mua-adapter-update-records (mua &optional header-class update-p sort)
   (bbdb-update-records (bbdb-mua-adapter-get-address-components mua header-class) update-p sort))
 
-(defmethod bbdb-mua-adapter-get-address-components ((mua bbdb-mua-adapter) &optional header-class ignore-address)
-  ;; We do not use `bbdb-message-all-addresses' here because only when we
+(defgeneric bbdb-mua-adapter-get-address-components (mua &optional header-class ignore-address)
+    ;; We do not use `bbdb-message-all-addresses' here because only when we
   ;; have compared the addresses with the records in BBDB do we know which
   ;; address(es) are relevant for us.
   (let ((message-headers (if header-class
